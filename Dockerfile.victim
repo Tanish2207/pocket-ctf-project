@@ -1,0 +1,23 @@
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y \
+    suricata \
+    net-tools \
+    iputils-ping 
+
+RUN mkdir -p /etc/suricata/rules && \
+    echo 'alert tcp any any -> any any (msg:"NMAP PORT SCAN DETECTED"; flags:S; threshold: type both, track by_src, count 20, seconds 3; sid:9000001; rev:1;)' > /etc/suricata/rules/suricata.rules && \
+    echo 'alert icmp any any -> any any (msg:"ICMP PING DETECTED"; itype:8; sid:9000002; rev:1;)' >> /etc/suricata/rules/suricata.rules
+
+RUN cat > /start.sh <<'EOF'
+#!/bin/bash
+echo "Starting Suricata"
+suricata -i eth0 -S /etc/suricata/rules/suricata.rules -D
+
+sleep 5
+touch /var/log/suricata/fast.log
+
+echo "Suricata is running"
+tail -f /var/log/suricata/fast.log
+EOF
+RUN chmod +x /start.sh
+CMD ["/bin/bash", "/start.sh"]

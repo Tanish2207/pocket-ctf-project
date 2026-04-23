@@ -1,0 +1,34 @@
+# Gives the victim a stable DNS name inside the namespace
+apiVersion: v1
+kind: Service
+metadata:
+  name: victim
+spec:
+  selector:
+    app: victim
+  clusterIP: None       # Headless service — direct pod DNS, no load balancer
+  ports:
+    - port: 80          # Placeholder; Suricata doesn't expose a port but K8s needs one
+---
+# Runs the victim pod (Suricata)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: victim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: victim
+  template:
+    metadata:
+      labels:
+        app: victim
+    spec:
+      containers:
+        - name: victim
+          image: victim-image:latest
+          imagePullPolicy: Never    # Use the locally loaded image
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN", "NET_RAW"]  # Suricata needs raw packet access

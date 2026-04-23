@@ -1,0 +1,5 @@
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y nmap hping3 iputils-ping net-tools
+COPY attacker.sh /attacker.sh
+RUN chmod +x /attacker.sh
+CMD ["/bin/bash", "/attacker.sh"]
