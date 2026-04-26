@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>BlueLab CTF</title>
+    <style>
+      body {
+        font-family: monospace;
+        background: #0d1117;
+        color: #c9d1d9;
+        padding: 20px;
+      }
+      h1 {
+        color: #58a6ff;
+      }
+      input,
+      button {
+        padding: 8px;
+        margin: 5px;
+        border-radius: 4px;
+        border: none;
+      }
+      button {
+        background: #238636;
+        color: white;
+        cursor: pointer;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+      th,
+      td {
+        border: 1px solid #30363d;
+        padding: 8px;
+        text-align: left;
+      }
+      th {
+        background: #161b22;
+      }
+      .tab {
+        display: none;
+      }
+      .tab.active {
+        display: block;
+      }
+      nav button {
+        background: #21262d;
+        margin-bottom: 10px;
+      }
+      .correct {
+        color: #3fb950;
+      }
+      .wrong {
+        color: #f85149;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🛡️ BlueLab CTF</h1>
+
+    <nav>
+      <button onclick="showTab('login')">Login / Register</button>
+      <button onclick="showTab('challenges')">Challenges</button>
+      <button onclick="showTab('leaderboard')">Leaderboard</button>
+    </nav>
+
+    <!-- LOGIN / REGISTER TAB -->
+    <div id="login" class="tab active">
+      <h2>Register / Login</h2>
+      <input id="username" placeholder="Username" />
+      <input id="password" type="password" placeholder="Password" />
+      <br />
+      <button onclick="register()">Register</button>
+      <button onclick="login()">Login</button>
+      <p id="auth-msg"></p>
+    </div>
+
+    <!-- CHALLENGES TAB -->
+    <div id="challenges" class="tab">
+      <h2>Challenges</h2>
+      <div id="challenge-list"></div>
+    </div>
+
+    <!-- LEADERBOARD TAB -->
+    <div id="leaderboard" class="tab">
+      <h2>🏆 Leaderboard</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Username</th>
+            <th>Solved</th>
+            <th>Points</th>
+          </tr>
+        </thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+    </div>
+
+    <script>
+      const API = "http://localhost:8000"; // your dashboard backend URL
+      let currentUser = null;
+
+      function showTab(id) {
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.remove("active"));
+        document.getElementById(id).classList.add("active");
+        if (id === "challenges") loadChallenges();
+        if (id === "leaderboard") loadLeaderboard();
+      }
+
+      async function register() {
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+        const res = await fetch(`${API}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+        // Read body ONCE as text, then try to parse as JSON
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          document.getElementById("auth-msg").textContent = `Server error: ${text}`;
+          return;
+        }
+        document.getElementById("auth-msg").textContent =
+          data.message || data.detail;
+      }
+
+      async function login() {
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+        const res = await fetch(`${API}/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          currentUser = username;
+          document.getElementById("auth-msg").textContent =
+            `Logged in as ${username}`;
+        } else {
+          document.getElementById("auth-msg").textContent = data.detail;
+        }
+      }
+
+      async function loadChallenges() {
+        const res = await fetch(`${API}/challenges`);
+        const challenges = await res.json();
+        const container = document.getElementById("challenge-list");
+        container.innerHTML = challenges
+          .map(
+            (c) => `
+    <div style="border:1px solid #30363d; padding:15px; margin:10px 0; border-radius:8px;">
+      <h3>${c.title} <span style="color:#f0883e">[${c.points} pts]</span></h3>
+      <p>${c.description}</p>
+      <input id="flag-${c.id}" placeholder="flag{...}" style="width:300px"/>
+      <button onclick="submitFlag(${c.id})">Submit</button>
+      <span id="result-${c.id}"></span>
+    </div>
+  `,
+          )
+          .join("");
+      }
+
+      async function submitFlag(challengeId) {
+        if (!currentUser) {
+          alert("Please login first!");
+          return;
+        }
+        const flag = document.getElementById(`flag-${challengeId}`).value;
+        const res = await fetch(`${API}/submit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: currentUser,
+            challenge_id: challengeId,
+            flag,
+          }),
+        });
+        const data = await res.json();
+        const el = document.getElementById(`result-${challengeId}`);
+        el.textContent = ` ${data.message}`;
+        el.className = data.result === "correct" ? "correct" : "wrong";
+      }
+
+      async function loadLeaderboard() {
+        const res = await fetch(`${API}/leaderboard`);
+        const rows = await res.json();
+        document.getElementById("lb-body").innerHTML = rows
+          .map(
+            (r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${r.username}</td>
+      <td>${r.solved_count}</td>
+      <td>${r.total_points}</td>
+    </tr>
+  `,
+          )
+          .join("");
+      }
+    </script>
+  </body>
+</html>

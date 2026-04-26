@@ -1,0 +1,66 @@
+# Namespace — isolates this trainee completely
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trainee-{USERNAME}
+
+---
+# Victim Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: victim
+  namespace: trainee-{USERNAME}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: victim
+  template:
+    metadata:
+      labels:
+        app: victim
+    spec:
+      containers:
+      - name: victim
+        image: victim:latest          # your existing image
+        imagePullPolicy: Never        # use local image loaded into Kind
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "NET_RAW"]
+
+---
+# Victim Service (Headless — direct pod access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: victim
+  namespace: trainee-{USERNAME}
+spec:
+  clusterIP: None
+  selector:
+    app: victim
+  ports:
+  - port: 80
+
+---
+# Attacker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: attacker
+  namespace: trainee-{USERNAME}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: attacker
+  template:
+    metadata:
+      labels:
+        app: attacker
+    spec:
+      containers:
+      - name: attacker
+        image: attacker:latest
+        imagePullPolicy: Never

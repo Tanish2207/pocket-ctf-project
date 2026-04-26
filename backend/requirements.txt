@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+kubernetes
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
