@@ -2,4 +2,13 @@ FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y nmap hping3 iputils-ping net-tools
 COPY attacker.sh /attacker.sh
 RUN chmod +x /attacker.sh
-CMD ["/bin/bash", "/attacker.sh"]
+# Install ttyd (web terminal)
+RUN apt-get update && apt-get install -y wget && \
+    wget -q -O /usr/local/bin/ttyd \
+      https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 && \
+    chmod +x /usr/local/bin/ttyd
+
+COPY attacker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+EXPOSE 7681
+CMD ["/entrypoint.sh","/bin/bash", "/attacker.sh"]

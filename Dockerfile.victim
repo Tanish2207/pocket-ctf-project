@@ -10,14 +10,35 @@ RUN mkdir -p /etc/suricata/rules && \
 
 RUN cat > /start.sh <<'EOF'
 #!/bin/bash
-echo "Starting Suricata"
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [START.SH] $*"; }
+
+log "============================================"
+log "  Victim /start.sh initialising"
+log "============================================"
+
+log "Checking Suricata rules file..."
+cat /etc/suricata/rules/suricata.rules
+
+log "Starting Suricata IDS in daemon mode on interface eth0..."
 suricata -i eth0 -S /etc/suricata/rules/suricata.rules -D
+log "Suricata daemon launched — waiting 5 seconds for it to initialise..."
 
 sleep 5
+
+log "Ensuring fast.log exists at /var/log/suricata/fast.log..."
 touch /var/log/suricata/fast.log
 
-echo "Suricata is running"
+log "Suricata is UP — tailing fast.log for live IDS alerts:"
+log "============================================"
 tail -f /var/log/suricata/fast.log
 EOF
 RUN chmod +x /start.sh
-CMD ["/bin/bash", "/start.sh"]
+RUN apt-get update && apt-get install -y wget && \
+    wget -q -O /usr/local/bin/ttyd \
+      https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 && \
+    chmod +x /usr/local/bin/ttyd
+
+COPY victim-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+EXPOSE 7682
+CMD ["/entrypoint.sh", "/bin/bash", "/start.sh"]  
