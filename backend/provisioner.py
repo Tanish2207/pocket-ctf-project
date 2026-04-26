@@ -18,7 +18,7 @@ def provision_trainee(username: str):
     Called automatically on registration.
     """
     load_k8s_config()
-    namespace = f"trainee-{username.lower()}"
+    namespace = f"sunday-trainee-{username.lower()}"
 
     v1 = client.CoreV1Api()
     apps_v1 = client.AppsV1Api()
@@ -33,12 +33,18 @@ def provision_trainee(username: str):
     except Exception as e:
         print(f"[!] Namespace may already exist: {e}")
 
+    # Stable DNS name the attacker uses to reach the victim
+    victim_dns = f"victim.{namespace}.svc.cluster.local"
+    # The CTF platform backend — running locally, reachable via host.docker.internal in KIND
+    ctf_url = "http://host.docker.internal:8000"
+
     # 2. Create Victim Deployment
     victim_deployment = _build_deployment(
         name="victim",
         namespace=namespace,
-        image="victim:latest",
-        capabilities=["NET_ADMIN", "NET_RAW"]
+        image="sunday-victim:latest",
+        capabilities=["NET_ADMIN", "NET_RAW"],
+        env_vars={"CTF_URL": ctf_url},
     )
     try:
         apps_v1.create_namespaced_deployment(namespace, victim_deployment)
@@ -50,7 +56,7 @@ def provision_trainee(username: str):
     svc = client.V1Service(
         metadata=client.V1ObjectMeta(name="victim", namespace=namespace),
         spec=client.V1ServiceSpec(
-            cluster_ip="None",
+            cluster_ip=None,  # headless: DNS resolves directly to pod IP
             selector={"app": "victim"},
             ports=[client.V1ServicePort(port=80)]
         )
@@ -62,10 +68,16 @@ def provision_trainee(username: str):
         print(f"[!] Service error: {e}")
 
     # 4. Create Attacker Deployment
+    # NET_ADMIN + NET_RAW are required for nmap -sS (raw SYN scan) and hping3
     attacker_deployment = _build_deployment(
         name="attacker",
         namespace=namespace,
-        image="attacker:latest",
+        image="sunday-attacker:latest",
+        capabilities=["NET_ADMIN", "NET_RAW"],
+        env_vars={
+            "VICTIM_HOST": victim_dns,  # e.g. victim.sunday-trainee-alice.svc.cluster.local
+            "CTF_URL":     ctf_url,
+        },
     )
     try:
         apps_v1.create_namespaced_deployment(namespace, attacker_deployment)
@@ -80,7 +92,7 @@ def deprovision_trainee(username: str):
     Deleting namespace deletes everything inside it automatically.
     """
     load_k8s_config()
-    namespace = f"trainee-{username.lower()}"
+    namespace = f"sunday-trainee-{username.lower()}"
     v1 = client.CoreV1Api()
     try:
         v1.delete_namespace(namespace)
@@ -89,19 +101,33 @@ def deprovision_trainee(username: str):
         print(f"[!] Deprovision error: {e}")
 
 
-def _build_deployment(name, namespace, image, capabilities=None):
-    """Helper to build a K8s Deployment object"""
+def _build_deployment(name, namespace, image, capabilities=None, env_vars=None):
+    """Helper to build a K8s Deployment object.
+
+    Args:
+        name:         Deployment/pod name (e.g. 'attacker', 'victim')
+        namespace:    K8s namespace to deploy into
+        image:        Docker image name (must be pre-loaded into the KIND cluster)
+        capabilities: Optional list of Linux capabilities (e.g. ['NET_RAW', 'NET_ADMIN'])
+        env_vars:     Optional dict of env vars to inject (e.g. {'VICTIM_HOST': '...'})
+    """
     security_context = None
     if capabilities:
         security_context = client.V1SecurityContext(
             capabilities=client.V1Capabilities(add=capabilities)
         )
 
+    env = [
+        client.V1EnvVar(name=k, value=v)
+        for k, v in env_vars.items()
+    ] if env_vars else None
+
     container = client.V1Container(
         name=name,
         image=image,
         image_pull_policy="Never",
-        security_context=security_context
+        security_context=security_context,
+        env=env,
     )
 
     return client.V1Deployment(

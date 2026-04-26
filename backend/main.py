@@ -1,10 +1,8 @@
 import logging
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from passlib.context import CryptContext
 from database import init_db, get_db
 from provisioner import provision_trainee, deprovision_trainee
 
@@ -24,7 +22,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-pwd_context = CryptContext(schemes=["bcrypt"])
 
 # ── Startup ──────────────────────────────────────────────
 @app.on_event("startup")
@@ -56,11 +53,9 @@ def register(req: RegisterRequest):
     """
     logger.info("[REGISTER] Step 1 — Request received for username='%s'", req.username)
 
-    # Step 2: Hash password
     db = get_db()
-    # hashed = pwd_context.hash(req.password)
-    namespace = f"trainee-{req.username.lower()}"
-    logger.info("[REGISTER] Step 2 — Password hashed, namespace='%s'", namespace)
+    namespace = f"sunday-trainee-{req.username.lower()}"
+    logger.info("[REGISTER] namespace='%s'", namespace)
 
     # Step 3: Insert into DB
     try:
@@ -182,7 +177,4 @@ def leaderboard():
         return [dict(r) for r in rows]
     finally:
         db.close()
-
-
-# --- at the very bottom of main.py ---
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
