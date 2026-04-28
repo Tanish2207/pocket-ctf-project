@@ -1,10 +1,10 @@
 import logging
-import os
+import re
 import socket
 import sqlite3
 
 import docker
-from flask import Flask, g, jsonify, redirect, render_template, request, url_for
+from flask import Flask, g, jsonify, render_template, request
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -13,21 +13,19 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 log = logging.getLogger("pocketctf")
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("docker").setLevel(logging.WARNING)
 
 app = Flask(__name__)
-DATABASE = "ctf.db"
-NETWORK_NAME = "ctf-net"
+DATABASE  = "ctf.db"
 ATTACKER_IMAGE = "ctf-attacker"
-VICTIM_IMAGE = "ctf-victim"
-ATTACKER_CONTAINER = "ctf-attacker"
-VICTIM_CONTAINER = "ctf-victim"
-ATTACKER_TTYD_PORT = 7681
-VICTIM_TTYD_PORT = 7682
+VICTIM_IMAGE   = "ctf-victim"
+BASE_PORT = 7681   # port pairs allocated upward from here
 
 log.info("Connecting to Docker daemon...")
 try:
     docker_client = docker.from_env()
-    log.info("Docker daemon connected successfully: %s", docker_client.version()["Version"])
+    log.info("Docker daemon connected: v%s", docker_client.version()["Version"])
 except Exception as e:
     log.critical("Failed to connect to Docker daemon: %s", e)
     raise
@@ -49,7 +47,6 @@ def get_db():
 def close_db(exc):
     db = getattr(g, "_database", None)
     if db:
-        log.debug("Closing DB connection")
         db.close()
 
 
@@ -57,6 +54,14 @@ def init_db():
     log.info("Initialising database at: %s", DATABASE)
     with app.app_context():
         db = get_db()
+        # Drop sessions table if it has the old single-session schema
+        try:
+            db.execute("SELECT attacker_slug FROM sessions LIMIT 1")
+            log.info("Sessions table schema is current")
+        except sqlite3.OperationalError:
+            log.warning("Old sessions schema detected — dropping and recreating")
+            db.execute("DROP TABLE IF EXISTS sessions")
+
         db.executescript("""
             CREATE TABLE IF NOT EXISTS flags (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,44 +73,50 @@ def init_db():
             );
 
             CREATE TABLE IF NOT EXISTS submissions (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_name TEXT    NOT NULL,
-                player_role TEXT    NOT NULL,
-                flag_id     INTEGER NOT NULL,
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_name  TEXT    NOT NULL,
+                player_role  TEXT    NOT NULL,
+                flag_id      INTEGER NOT NULL,
                 submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(player_name, flag_id),
                 FOREIGN KEY (flag_id) REFERENCES flags(id)
             );
 
             CREATE TABLE IF NOT EXISTS sessions (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                attacker_name TEXT,
-                victim_name   TEXT,
-                status        TEXT DEFAULT 'stopped',
-                created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                attacker_name      TEXT,
+                victim_name        TEXT,
+                attacker_slug      TEXT,
+                victim_slug        TEXT,
+                attacker_container TEXT,
+                victim_container   TEXT,
+                attacker_port      INTEGER,
+                victim_port        INTEGER,
+                network_name       TEXT,
+                status             TEXT DEFAULT 'stopped',
+                created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
         db.commit()
-    log.info("Database initialised — tables: flags, submissions, sessions")
+    log.info("Database ready — tables: flags, submissions, sessions")
 
 
 # ── Docker helpers ────────────────────────────────────────────────────────────
 
 def get_host_ip():
-    """Best-effort LAN IP detection."""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
-        log.debug("Detected host LAN IP: %s", ip)
         return ip
-    except Exception as e:
-        log.warning("Could not detect host IP (%s) — falling back to 127.0.0.1", e)
+    except Exception:
         return "127.0.0.1"
 
 
 def get_container(name):
+    if not name:
+        return None
     try:
         c = docker_client.containers.get(name)
         log.debug("Container '%s' found — status: %s", name, c.status)
@@ -115,19 +126,44 @@ def get_container(name):
         return None
 
 
-def ensure_network():
-    try:
-        docker_client.networks.get(NETWORK_NAME)
-        log.debug("Docker network '%s' already exists", NETWORK_NAME)
-    except docker.errors.NotFound:
-        log.info("Docker network '%s' not found — creating bridge network", NETWORK_NAME)
-        docker_client.networks.create(NETWORK_NAME, driver="bridge")
-        log.info("Docker network '%s' created", NETWORK_NAME)
-
-
 def container_status(name):
     c = get_container(name)
     return c.status if c else "stopped"
+
+
+def ensure_network(name):
+    try:
+        docker_client.networks.get(name)
+        log.debug("Network '%s' already exists", name)
+    except docker.errors.NotFound:
+        log.info("Creating Docker network '%s'", name)
+        docker_client.networks.create(name, driver="bridge")
+        log.info("Network '%s' created", name)
+
+
+def sanitize_slug(name: str) -> str:
+    """Convert student name to a Docker/URL-safe lowercase slug."""
+    slug = name.lower().replace(" ", "-")
+    slug = re.sub(r"[^a-z0-9-]", "", slug)
+    slug = re.sub(r"-+", "-", slug).strip("-")
+    return slug[:20] or "player"
+
+
+def allocate_ports():
+    """Find the next free consecutive attacker+victim port pair."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT attacker_port, victim_port FROM sessions WHERE status='running'"
+    ).fetchall()
+    used = set()
+    for r in rows:
+        if r["attacker_port"]: used.add(r["attacker_port"])
+        if r["victim_port"]:   used.add(r["victim_port"])
+    port = BASE_PORT
+    while port in used or (port + 1) in used:
+        port += 2
+    log.debug("Allocated ports: attacker=%d victim=%d", port, port + 1)
+    return port, port + 1
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -137,7 +173,6 @@ def dashboard():
     log.info("GET / — rendering teacher dashboard")
     db = get_db()
     flags = db.execute("SELECT * FROM flags ORDER BY for_role, points").fetchall()
-    log.debug("Loaded %d flag(s) from DB", len(flags))
     leaderboard = db.execute("""
         SELECT s.player_name, s.player_role,
                SUM(f.points) AS total_points,
@@ -147,138 +182,169 @@ def dashboard():
         GROUP  BY s.player_name
         ORDER  BY total_points DESC
     """).fetchall()
-    log.debug("Leaderboard has %d player(s)", len(leaderboard))
-    session = db.execute(
-        "SELECT * FROM sessions ORDER BY id DESC LIMIT 1"
-    ).fetchone()
-    log.debug("Latest session status: %s", session["status"] if session else "none")
-
-    a_status = container_status(ATTACKER_CONTAINER)
-    v_status = container_status(VICTIM_CONTAINER)
-    log.info("Container status — attacker: %s | victim: %s", a_status, v_status)
-
     return render_template(
         "dashboard.html",
         flags=flags,
         leaderboard=leaderboard,
-        session=session,
         host_ip=get_host_ip(),
-        attacker_port=ATTACKER_TTYD_PORT,
-        victim_port=VICTIM_TTYD_PORT,
-        attacker_status=a_status,
-        victim_status=v_status,
     )
 
 
 @app.route("/start", methods=["POST"])
 def start_session():
-    attacker_name = request.form.get("attacker_name", "Student A").strip()
-    victim_name   = request.form.get("victim_name",   "Student B").strip()
-    log.info("POST /start — attacker: '%s', victim: '%s'", attacker_name, victim_name)
+    attacker_name = request.form.get("attacker_name", "").strip()
+    victim_name   = request.form.get("victim_name",   "").strip()
+    if not attacker_name or not victim_name:
+        return jsonify({"error": "Both attacker and victim names are required"}), 400
+
+    attacker_slug = sanitize_slug(attacker_name)
+    victim_slug   = sanitize_slug(victim_name)
+    attacker_container = f"{attacker_slug}-ctf-attacker"
+    victim_container   = f"{victim_slug}-ctf-victim"
+    network_name       = f"{attacker_slug}-{victim_slug}-net"
+
+    log.info("POST /start — %s (%s) vs %s (%s)",
+             attacker_name, attacker_slug, victim_name, victim_slug)
+
+    db = get_db()
+    conflict = db.execute(
+        """SELECT id FROM sessions WHERE status='running'
+           AND (attacker_slug=? OR victim_slug=? OR attacker_slug=? OR victim_slug=?)""",
+        (attacker_slug, attacker_slug, victim_slug, victim_slug),
+    ).fetchone()
+    if conflict:
+        log.warning("Name conflict — slug already used in a running session")
+        return jsonify({"error": "A running session already uses one of these names"}), 400
 
     try:
-        ensure_network()
+        attacker_port, victim_port = allocate_ports()
+        ensure_network(network_name)
 
-        # --- Victim ---
-        v = get_container(VICTIM_CONTAINER)
+        v = get_container(victim_container)
         if not v:
-            log.info("Victim container '%s' not found — creating from image '%s'", VICTIM_CONTAINER, VICTIM_IMAGE)
+            log.info("Creating victim '%s' on port %d", victim_container, victim_port)
             docker_client.containers.run(
-                VICTIM_IMAGE,
-                name=VICTIM_CONTAINER,
-                network=NETWORK_NAME,
-                hostname="victim",
-                ports={f"{VICTIM_TTYD_PORT}/tcp": VICTIM_TTYD_PORT},
-                detach=True,
-                tty=True,
-                cap_add=["NET_ADMIN", "NET_RAW"],
+                VICTIM_IMAGE, name=victim_container,
+                network=network_name, hostname="victim",
+                ports={"7682/tcp": victim_port},
+                detach=True, tty=True, cap_add=["NET_ADMIN", "NET_RAW"],
             )
-            log.info("Victim container started — web terminal at port %d", VICTIM_TTYD_PORT)
         elif v.status != "running":
-            log.info("Victim container exists but is '%s' — restarting", v.status)
+            log.info("Victim exists (%s) — restarting", v.status)
             v.start()
-            log.info("Victim container restarted")
-        else:
-            log.info("Victim container already running — skipping")
 
-        # --- Attacker ---
-        a = get_container(ATTACKER_CONTAINER)
+        a = get_container(attacker_container)
         if not a:
-            log.info("Attacker container '%s' not found — creating from image '%s'", ATTACKER_CONTAINER, ATTACKER_IMAGE)
+            log.info("Creating attacker '%s' on port %d", attacker_container, attacker_port)
             docker_client.containers.run(
-                ATTACKER_IMAGE,
-                name=ATTACKER_CONTAINER,
-                network=NETWORK_NAME,
-                hostname="attacker",
-                ports={f"{ATTACKER_TTYD_PORT}/tcp": ATTACKER_TTYD_PORT},
-                detach=True,
-                tty=True,
-                cap_add=["NET_ADMIN", "NET_RAW"],
+                ATTACKER_IMAGE, name=attacker_container,
+                network=network_name, hostname="attacker",
+                ports={"7681/tcp": attacker_port},
+                detach=True, tty=True, cap_add=["NET_ADMIN", "NET_RAW"],
             )
-            log.info("Attacker container started — web terminal at port %d", ATTACKER_TTYD_PORT)
         elif a.status != "running":
-            log.info("Attacker container exists but is '%s' — restarting", a.status)
+            log.info("Attacker exists (%s) — restarting", a.status)
             a.start()
-            log.info("Attacker container restarted")
-        else:
-            log.info("Attacker container already running — skipping")
 
-        db = get_db()
         db.execute(
-            "INSERT INTO sessions (attacker_name, victim_name, status) VALUES (?,?,?)",
-            (attacker_name, victim_name, "running"),
+            """INSERT INTO sessions
+               (attacker_name, victim_name, attacker_slug, victim_slug,
+                attacker_container, victim_container,
+                attacker_port, victim_port, network_name, status)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (attacker_name, victim_name, attacker_slug, victim_slug,
+             attacker_container, victim_container,
+             attacker_port, victim_port, network_name, "running"),
         )
         db.commit()
-        log.info("Session recorded in DB — attacker: '%s', victim: '%s'", attacker_name, victim_name)
-        return jsonify({"status": "started"})
-
+        host_ip = get_host_ip()
+        log.info("Session started — /student/%s/attacker | /student/%s/victim",
+                 attacker_slug, victim_slug)
+        return jsonify({
+            "status":        "started",
+            "attacker_name": attacker_name,
+            "victim_name":   victim_name,
+            "attacker_port": attacker_port,
+            "victim_port":   victim_port,
+            "attacker_url":  f"http://{host_ip}:5000/student/{attacker_slug}/attacker",
+            "victim_url":    f"http://{host_ip}:5000/student/{victim_slug}/victim",
+        })
     except Exception as e:
         log.error("Failed to start session: %s", e, exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/stop", methods=["POST"])
-def stop_session():
-    log.info("POST /stop — stopping all containers")
+@app.route("/stop/<int:session_id>", methods=["POST"])
+def stop_session(session_id):
+    log.info("POST /stop/%d", session_id)
+    db = get_db()
+    session = db.execute("SELECT * FROM sessions WHERE id=?", (session_id,)).fetchone()
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+
     errors = []
-    for name in [ATTACKER_CONTAINER, VICTIM_CONTAINER]:
-        c = get_container(name)
+    for cname in [session["attacker_container"], session["victim_container"]]:
+        c = get_container(cname)
         if c:
             try:
-                log.info("Stopping container '%s' (timeout=5s)...", name)
+                log.info("Stopping '%s'...", cname)
                 c.stop(timeout=5)
-                log.info("Container '%s' stopped — removing...", name)
                 c.remove()
-                log.info("Container '%s' removed", name)
+                log.info("'%s' removed", cname)
             except Exception as e:
-                log.error("Error stopping/removing '%s': %s", name, e)
+                log.error("Error stopping '%s': %s", cname, e)
                 errors.append(str(e))
-        else:
-            log.debug("Container '%s' not found — nothing to stop", name)
+
+    if session["network_name"]:
+        try:
+            docker_client.networks.get(session["network_name"]).remove()
+            log.info("Network '%s' removed", session["network_name"])
+        except Exception as e:
+            log.warning("Could not remove network '%s': %s", session["network_name"], e)
+
+    db.execute("UPDATE sessions SET status='stopped' WHERE id=?", (session_id,))
+    db.commit()
+    log.info("Session %d marked as stopped", session_id)
     if errors:
-        log.warning("Stop completed with errors: %s", errors)
         return jsonify({"status": "partial", "errors": errors})
-    log.info("All containers stopped and removed successfully")
     return jsonify({"status": "stopped"})
 
 
 @app.route("/status")
 def status():
-    return jsonify(
-        {
-            "attacker": container_status(ATTACKER_CONTAINER),
-            "victim":   container_status(VICTIM_CONTAINER),
-        }
-    )
+    db = get_db()
+    sessions = db.execute("SELECT * FROM sessions ORDER BY id DESC").fetchall()
+    result = []
+    for s in sessions:
+        a_st = container_status(s["attacker_container"])
+        v_st = container_status(s["victim_container"])
+        result.append({
+            "id":               s["id"],
+            "attacker_name":    s["attacker_name"],
+            "victim_name":      s["victim_name"],
+            "attacker_slug":    s["attacker_slug"],
+            "victim_slug":      s["victim_slug"],
+            "attacker_status":  a_st,
+            "victim_status":    v_st,
+            "attacker_port":    s["attacker_port"],
+            "victim_port":      s["victim_port"],
+            "status":           s["status"],
+            "created_at":       s["created_at"],
+        })
+    return jsonify(result)
 
 
-@app.route("/logs/<role>")
-def logs(role):
-    name = ATTACKER_CONTAINER if role == "attacker" else VICTIM_CONTAINER
+@app.route("/logs/<int:session_id>/<role>")
+def logs(session_id, role):
+    db = get_db()
+    session = db.execute("SELECT * FROM sessions WHERE id=?", (session_id,)).fetchone()
+    if not session:
+        return jsonify({"logs": "Session not found."}), 404
+    name = session["attacker_container"] if role == "attacker" else session["victim_container"]
     c = get_container(name)
     if not c:
         return jsonify({"logs": "Container not running."})
-    return jsonify({"logs": c.logs(tail=60).decode("utf-8", errors="replace")})
+    return jsonify({"logs": c.logs(tail=80).decode("utf-8", errors="replace")})
 
 
 # ── Flags ─────────────────────────────────────────────────────────────────────
@@ -286,7 +352,8 @@ def logs(role):
 @app.route("/flags/add", methods=["POST"])
 def add_flag():
     d = request.form
-    log.info("POST /flags/add — title: '%s', points: %s, role: %s", d.get("title"), d.get("points"), d.get("for_role"))
+    log.info("POST /flags/add — title: '%s', points: %s, role: %s",
+             d.get("title"), d.get("points"), d.get("for_role"))
     db = get_db()
     try:
         db.execute(
@@ -294,10 +361,10 @@ def add_flag():
             (d["flag"], d["title"], d["description"], int(d["points"]), d["for_role"]),
         )
         db.commit()
-        log.info("Flag '%s' added successfully", d.get("title"))
+        log.info("Flag '%s' added", d.get("title"))
         return jsonify({"status": "added"})
     except sqlite3.IntegrityError:
-        log.warning("Duplicate flag rejected: '%s'", d.get("flag"))
+        log.warning("Duplicate flag: '%s'", d.get("flag"))
         return jsonify({"error": "Flag already exists"}), 400
 
 
@@ -307,27 +374,35 @@ def delete_flag(flag_id):
     db = get_db()
     db.execute("DELETE FROM flags WHERE id = ?", (flag_id,))
     db.commit()
-    log.info("Flag id=%d deleted", flag_id)
     return jsonify({"status": "deleted"})
 
 
 # ── Student portal ────────────────────────────────────────────────────────────
 
-@app.route("/student/<role>")
-def student_portal(role):
+@app.route("/student/<slug>/<role>")
+def student_portal(slug, role):
     if role not in ("attacker", "victim"):
         return "Invalid role", 404
-    host_ip = get_host_ip()
-    port = ATTACKER_TTYD_PORT if role == "attacker" else VICTIM_TTYD_PORT
     db = get_db()
+    col = "attacker_slug" if role == "attacker" else "victim_slug"
+    session = db.execute(
+        f"SELECT * FROM sessions WHERE {col}=? AND status='running'", (slug,)
+    ).fetchone()
+    if not session:
+        return (
+            f"<h2 style='font-family:monospace;color:red;padding:40px'>"
+            f"No active session found for '{slug}' as {role}.</h2>",
+            404,
+        )
+    port = session["attacker_port"] if role == "attacker" else session["victim_port"]
     flags = db.execute(
-        "SELECT id, title, description, points FROM flags WHERE for_role = ? OR for_role = 'both'",
+        "SELECT id, title, description, points FROM flags WHERE for_role=? OR for_role='both'",
         (role,),
     ).fetchall()
     return render_template(
         "student.html",
         role=role,
-        host_ip=host_ip,
+        host_ip=get_host_ip(),
         terminal_port=port,
         flags=flags,
     )
@@ -339,29 +414,27 @@ def submit_flag():
     player_name = data.get("player_name", "").strip()
     player_role = data.get("player_role", "").strip()
     flag        = data.get("flag", "").strip()
-    log.info("POST /submit-flag — player: '%s' (%s), flag: '%s'", player_name, player_role, flag)
-
+    log.info("POST /submit-flag — player: '%s' (%s), flag: '%s'",
+             player_name, player_role, flag)
     if not all([player_name, player_role, flag]):
-        log.warning("Flag submission rejected — missing fields")
         return jsonify({"error": "Missing fields"}), 400
-
     db = get_db()
     row = db.execute("SELECT * FROM flags WHERE flag = ?", (flag,)).fetchone()
     if not row:
-        log.warning("Wrong flag submitted by '%s': '%s'", player_name, flag)
+        log.warning("Wrong flag by '%s': '%s'", player_name, flag)
         return jsonify({"error": "Wrong flag. Keep trying!"}), 400
-
     try:
         db.execute(
             "INSERT INTO submissions (player_name, player_role, flag_id) VALUES (?,?,?)",
             (player_name, player_role, row["id"]),
         )
         db.commit()
-        log.info("Flag captured! player='%s', challenge='%s', points=%d", player_name, row["title"], row["points"])
+        log.info("Flag captured! player='%s', challenge='%s', points=%d",
+                 player_name, row["title"], row["points"])
         return jsonify({
             "success": True,
-            "points": row["points"],
-            "title":  row["title"],
+            "points":  row["points"],
+            "title":   row["title"],
             "message": row["description"],
         })
     except sqlite3.IntegrityError:
@@ -390,7 +463,6 @@ if __name__ == "__main__":
     log.info("=" * 55)
     log.info("PocketCTF starting up")
     log.info("Teacher dashboard : http://%s:5000", host_ip)
-    log.info("Attacker terminal : http://%s:%d", host_ip, ATTACKER_TTYD_PORT)
-    log.info("Victim terminal   : http://%s:%d", host_ip, VICTIM_TTYD_PORT)
+    log.info("Student URL format: http://%s:5000/student/<name>/attacker|victim", host_ip)
     log.info("=" * 55)
     app.run(host="0.0.0.0", port=5000, debug=False)

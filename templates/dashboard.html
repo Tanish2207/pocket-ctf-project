@@ -4,550 +4,278 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PocketCTF — Teacher Dashboard</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
     <style>
       :root {
-        --bg: #080c10;
+        --bg:      #080c10;
         --surface: #0d1117;
-        --border: #1a2535;
-        --accent: #00ff88;
+        --border:  #1a2535;
+        --accent:  #00ff88;
         --accent2: #00b8ff;
-        --danger: #ff4d6a;
-        --warn: #ffcc00;
-        --text: #c9d1d9;
-        --dim: #4a5568;
-        --glow: 0 0 12px rgba(0, 255, 136, 0.35);
-        --glow2: 0 0 12px rgba(0, 184, 255, 0.35);
+        --danger:  #ff4d6a;
+        --warn:    #ffcc00;
+        --text:    #c9d1d9;
+        --dim:     #4a5568;
+        --glow:    0 0 12px rgba(0,255,136,.35);
+        --glow2:   0 0 12px rgba(0,184,255,.35);
       }
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
         font-family: "Share Tech Mono", monospace;
-        background: var(--bg);
-        color: var(--text);
-        min-height: 100vh;
-        background-image: repeating-linear-gradient(
-          0deg,
-          transparent,
-          transparent 2px,
-          rgba(0, 255, 136, 0.012) 2px,
-          rgba(0, 255, 136, 0.012) 4px
-        );
+        background: var(--bg); color: var(--text); min-height: 100vh;
+        background-image: repeating-linear-gradient(0deg, transparent, transparent 2px,
+          rgba(0,255,136,.012) 2px, rgba(0,255,136,.012) 4px);
       }
-
-      /* ── Header ── */
       header {
-        background: var(--surface);
-        border-bottom: 1px solid var(--border);
-        padding: 18px 32px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        position: sticky;
-        top: 0;
-        z-index: 100;
+        background: var(--surface); border-bottom: 1px solid var(--border);
+        padding: 18px 32px; display: flex; align-items: center;
+        justify-content: space-between; position: sticky; top: 0; z-index: 100;
       }
-      .logo {
-        font-family: "Orbitron", sans-serif;
-        font-size: 1.4rem;
-        color: var(--accent);
-        text-shadow: var(--glow);
-        letter-spacing: 0.08em;
-      }
-      .logo span {
-        color: var(--accent2);
-      }
-      .badge {
-        font-size: 0.7rem;
-        padding: 3px 10px;
-        border-radius: 20px;
-        border: 1px solid var(--accent);
-        color: var(--accent);
-        text-shadow: var(--glow);
-      }
+      .logo { font-family: "Orbitron", sans-serif; font-size: 1.4rem;
+        color: var(--accent); text-shadow: var(--glow); letter-spacing: .08em; }
+      .logo span { color: var(--accent2); }
+      .badge { font-size: .7rem; padding: 3px 10px; border-radius: 20px;
+        border: 1px solid var(--accent); color: var(--accent); text-shadow: var(--glow); }
+      main { padding: 32px; max-width: 1400px; margin: 0 auto; }
 
-      /* ── Layout ── */
-      main {
-        padding: 32px;
-        max-width: 1300px;
-        margin: 0 auto;
-      }
-      .grid {
-        display: grid;
-        gap: 24px;
-      }
-      .grid-2 {
-        grid-template-columns: 1fr 1fr;
-      }
-      .grid-3 {
-        grid-template-columns: 1fr 1fr 1fr;
-      }
-
-      /* ── Card ── */
+      /* Cards */
       .card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 24px;
-        position: relative;
-        overflow: hidden;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 10px; padding: 24px; position: relative; overflow: hidden;
+        margin-bottom: 24px;
       }
       .card::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 2px;
-        background: linear-gradient(
-          90deg,
-          transparent,
-          var(--accent),
-          transparent
-        );
-        opacity: 0.5;
+        content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        opacity: .5;
       }
       .card-title {
-        font-family: "Orbitron", sans-serif;
-        font-size: 0.75rem;
-        letter-spacing: 0.15em;
-        color: var(--dim);
-        text-transform: uppercase;
-        margin-bottom: 18px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        font-family: "Orbitron", sans-serif; font-size: .75rem; letter-spacing: .15em;
+        color: var(--dim); text-transform: uppercase; margin-bottom: 18px;
+        display: flex; align-items: center; gap: 8px;
       }
-      .card-title .dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--accent);
-        box-shadow: var(--glow);
-      }
+      .card-title .dot { width: 6px; height: 6px; border-radius: 50%;
+        background: var(--accent); box-shadow: var(--glow); }
 
-      /* ── Status indicators ── */
-      .status-row {
-        display: flex;
-        gap: 16px;
-        flex-wrap: wrap;
-      }
-      .status-box {
-        flex: 1;
-        min-width: 200px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 16px 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-      .status-label {
-        font-size: 0.7rem;
-        color: var(--dim);
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-      }
-      .status-val {
-        font-family: "Orbitron", sans-serif;
-        font-size: 0.85rem;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .pip {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--dim);
-        transition:
-          background 0.3s,
-          box-shadow 0.3s;
-      }
-      .pip.running {
-        background: var(--accent);
-        box-shadow: var(--glow);
-        animation: pulse 2s infinite;
-      }
-      .pip.exited,
-      .pip.stopped {
-        background: var(--danger);
-      }
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.5;
-        }
-      }
-
-      .url-chip {
-        font-size: 0.75rem;
-        color: var(--accent2);
-        text-shadow: var(--glow2);
-        word-break: break-all;
-        cursor: pointer;
-        text-decoration: underline dotted;
-      }
-
-      /* ── Buttons ── */
+      /* Buttons */
       .btn {
-        font-family: "Share Tech Mono", monospace;
-        font-size: 0.85rem;
-        padding: 10px 22px;
-        border-radius: 6px;
-        border: 1px solid;
-        cursor: pointer;
-        transition: all 0.2s;
-        letter-spacing: 0.05em;
+        font-family: "Share Tech Mono", monospace; font-size: .85rem;
+        padding: 10px 22px; border-radius: 6px; border: 1px solid;
+        cursor: pointer; transition: all .2s; letter-spacing: .05em;
       }
-      .btn-primary {
-        background: rgba(0, 255, 136, 0.1);
-        border-color: var(--accent);
-        color: var(--accent);
-        text-shadow: var(--glow);
+      .btn-primary { background: rgba(0,255,136,.1); border-color: var(--accent);
+        color: var(--accent); text-shadow: var(--glow); }
+      .btn-primary:hover { background: rgba(0,255,136,.2); box-shadow: var(--glow); }
+      .btn-danger { background: rgba(255,77,106,.1); border-color: var(--danger);
+        color: var(--danger); }
+      .btn-danger:hover { background: rgba(255,77,106,.2); }
+      .btn-ghost { background: transparent; border-color: var(--dim); color: var(--dim); }
+      .btn-ghost:hover { border-color: var(--accent2); color: var(--accent2); }
+      .btn-sm { padding: 5px 12px; font-size: .75rem; }
+      .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+      /* Forms */
+      input, select {
+        font-family: "Share Tech Mono", monospace; background: var(--bg);
+        border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+        padding: 9px 14px; font-size: .85rem; width: 100%;
+        transition: border-color .2s; outline: none;
       }
-      .btn-primary:hover {
-        background: rgba(0, 255, 136, 0.2);
-        box-shadow: var(--glow);
+      input:focus, select:focus { border-color: var(--accent); box-shadow: var(--glow); }
+      label { font-size: .75rem; color: var(--dim); display: block;
+        margin-bottom: 6px; letter-spacing: .05em; }
+      .form-row { display: grid; gap: 12px; margin-bottom: 14px; }
+      .form-row.cols-2 { grid-template-columns: 1fr 1fr; }
+      .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+      /* Table */
+      table { width: 100%; border-collapse: collapse; }
+      thead tr { border-bottom: 1px solid var(--border); }
+      th { font-size: .7rem; color: var(--dim); text-transform: uppercase;
+        letter-spacing: .1em; padding: 10px 12px; text-align: left; }
+      td { padding: 10px 12px; font-size: .82rem;
+        border-bottom: 1px solid rgba(26,37,53,.6); }
+      tr:last-child td { border-bottom: none; }
+      .role-badge { display: inline-block; font-size: .65rem; padding: 2px 8px;
+        border-radius: 20px; text-transform: uppercase; letter-spacing: .06em; }
+      .role-attacker { background: rgba(255,77,106,.15); color: var(--danger);
+        border: 1px solid rgba(255,77,106,.3); }
+      .role-victim { background: rgba(0,184,255,.15); color: var(--accent2);
+        border: 1px solid rgba(0,184,255,.3); }
+      .role-both { background: rgba(255,204,0,.15); color: var(--warn);
+        border: 1px solid rgba(255,204,0,.3); }
+      .rank { font-family: "Orbitron", sans-serif; font-size: .75rem; color: var(--dim); }
+      .rank-1 { color: var(--warn); }
+      .rank-2 { color: #c0c0c0; }
+      .rank-3 { color: #cd7f32; }
+      .points { color: var(--accent); font-family: "Orbitron", sans-serif; }
+
+      hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+      /* Status pip */
+      .pip { width: 8px; height: 8px; border-radius: 50%; background: var(--dim);
+        display: inline-block; transition: background .3s, box-shadow .3s; }
+      .pip.running { background: var(--accent); box-shadow: var(--glow);
+        animation: pulse 2s infinite; }
+      .pip.exited, .pip.stopped { background: var(--danger); }
+      @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.5} }
+
+      /* ── Session cards grid ── */
+      .sessions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px,1fr)); gap: 20px; }
+      .session-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 10px; overflow: hidden;
+        transition: border-color .2s;
       }
-      .btn-danger {
-        background: rgba(255, 77, 106, 0.1);
-        border-color: var(--danger);
-        color: var(--danger);
+      .session-card:hover { border-color: rgba(0,255,136,.3); }
+      .session-card-header {
+        background: rgba(0,255,136,.05); border-bottom: 1px solid var(--border);
+        padding: 12px 18px; display: flex; align-items: center; gap: 10px;
       }
-      .btn-danger:hover {
-        background: rgba(255, 77, 106, 0.2);
+      .session-card-header .sid {
+        font-family: "Orbitron", sans-serif; font-size: .65rem;
+        color: var(--dim); min-width: 32px;
       }
-      .btn-sm {
-        padding: 5px 12px;
-        font-size: 0.75rem;
+      .session-card-header .pair-title {
+        font-family: "Orbitron", sans-serif; font-size: .82rem;
+        color: var(--accent); flex: 1;
       }
-      .btn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
+      .session-card-header .pair-title span { color: var(--accent2); }
+      .session-card-body { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+      .session-half {
+        padding: 14px 18px; border-right: 1px solid var(--border);
+      }
+      .session-half:last-child { border-right: none; }
+      .session-half .role-lbl {
+        font-size: .65rem; color: var(--dim); text-transform: uppercase;
+        letter-spacing: .1em; margin-bottom: 6px;
+      }
+      .session-half .player-name { font-size: .95rem; margin-bottom: 8px; }
+      .session-half .status-line { display: flex; align-items: center;
+        gap: 6px; font-size: .78rem; margin-bottom: 8px; }
+      .session-half .port-chip {
+        font-size: .72rem; color: var(--dim); margin-bottom: 6px;
+      }
+      .url-chip {
+        font-size: .7rem; color: var(--accent2); text-shadow: var(--glow2);
+        cursor: pointer; text-decoration: underline dotted;
+        word-break: break-all; display: block; margin-bottom: 6px;
+      }
+      .url-chip:hover { color: var(--accent); }
+      .session-card-footer {
+        padding: 10px 14px; border-top: 1px solid var(--border);
+        display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      }
+      .session-status-badge {
+        font-size: .65rem; padding: 2px 8px; border-radius: 20px;
+        text-transform: uppercase; letter-spacing: .06em; margin-left: auto;
+      }
+      .session-status-badge.running {
+        background: rgba(0,255,136,.1); color: var(--accent);
+        border: 1px solid rgba(0,255,136,.3);
+      }
+      .session-status-badge.stopped {
+        background: rgba(255,77,106,.1); color: var(--danger);
+        border: 1px solid rgba(255,77,106,.3);
       }
 
-      /* ── Form elements ── */
-      input,
-      select,
-      textarea {
-        font-family: "Share Tech Mono", monospace;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        color: var(--text);
-        padding: 9px 14px;
-        font-size: 0.85rem;
-        width: 100%;
-        transition: border-color 0.2s;
-        outline: none;
+      /* Log panel */
+      .log-panel { display: none; background: #000; padding: 12px 16px;
+        border-top: 1px solid var(--border); }
+      .log-panel.open { display: block; }
+      .log-panel .log-header {
+        font-size: .7rem; color: var(--dim); margin-bottom: 8px;
+        display: flex; gap: 8px; align-items: center;
       }
-      input:focus,
-      select:focus {
-        border-color: var(--accent);
-        box-shadow: var(--glow);
-      }
-      label {
-        font-size: 0.75rem;
-        color: var(--dim);
-        display: block;
-        margin-bottom: 6px;
-        letter-spacing: 0.05em;
-      }
-      .form-row {
-        display: grid;
-        gap: 12px;
-        margin-bottom: 14px;
-      }
-      .form-row.cols-2 {
-        grid-template-columns: 1fr 1fr;
-      }
-      .form-row.cols-3 {
-        grid-template-columns: 1fr 1fr 1fr;
+      .log-box {
+        background: #000; font-size: .72rem; color: #7ec8a0;
+        max-height: 180px; overflow-y: auto; white-space: pre-wrap;
+        word-break: break-all; line-height: 1.5;
       }
 
-      /* ── Table ── */
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      thead tr {
-        border-bottom: 1px solid var(--border);
-      }
-      th {
-        font-size: 0.7rem;
-        color: var(--dim);
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        padding: 10px 12px;
-        text-align: left;
-      }
-      td {
-        padding: 10px 12px;
-        font-size: 0.82rem;
-        border-bottom: 1px solid rgba(26, 37, 53, 0.6);
-      }
-      tr:last-child td {
-        border-bottom: none;
-      }
-      .role-badge {
-        display: inline-block;
-        font-size: 0.65rem;
-        padding: 2px 8px;
-        border-radius: 20px;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-      }
-      .role-attacker {
-        background: rgba(255, 77, 106, 0.15);
-        color: var(--danger);
-        border: 1px solid rgba(255, 77, 106, 0.3);
-      }
-      .role-victim {
-        background: rgba(0, 184, 255, 0.15);
-        color: var(--accent2);
-        border: 1px solid rgba(0, 184, 255, 0.3);
-      }
-      .role-both {
-        background: rgba(255, 204, 0, 0.15);
-        color: var(--warn);
-        border: 1px solid rgba(255, 204, 0, 0.3);
-      }
+      /* Start form */
+      .session-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+      .session-form > div { flex: 1; min-width: 140px; }
 
-      /* ── Leaderboard ── */
-      .rank {
-        font-family: "Orbitron", sans-serif;
-        font-size: 0.75rem;
-        color: var(--dim);
+      /* Empty state */
+      .empty-state {
+        text-align: center; padding: 48px 24px;
+        color: var(--dim); font-size: .85rem;
+        border: 1px dashed var(--border); border-radius: 10px;
       }
-      .rank-1 {
-        color: var(--warn);
-      }
-      .rank-2 {
-        color: #c0c0c0;
-      }
-      .rank-3 {
-        color: #cd7f32;
-      }
-      .points {
-        color: var(--accent);
-        font-family: "Orbitron", sans-serif;
-      }
+      .empty-state .big { font-family: "Orbitron", sans-serif;
+        font-size: 2rem; margin-bottom: 12px; opacity: .3; }
 
-      /* ── Toast ── */
+      /* Toast */
       #toast {
-        position: fixed;
-        bottom: 24px;
-        right: 24px;
-        background: var(--surface);
-        border: 1px solid var(--accent);
-        border-radius: 8px;
-        padding: 12px 20px;
-        font-size: 0.85rem;
-        color: var(--accent);
-        box-shadow: var(--glow);
-        z-index: 999;
-        transform: translateY(80px);
-        opacity: 0;
-        transition: all 0.3s;
+        position: fixed; bottom: 24px; right: 24px;
+        background: var(--surface); border: 1px solid var(--accent);
+        border-radius: 8px; padding: 12px 20px; font-size: .85rem;
+        color: var(--accent); box-shadow: var(--glow); z-index: 999;
+        transform: translateY(80px); opacity: 0; transition: all .3s;
         pointer-events: none;
       }
-      #toast.show {
-        transform: translateY(0);
-        opacity: 1;
-      }
-      #toast.error {
-        border-color: var(--danger);
-        color: var(--danger);
-      }
+      #toast.show { transform: translateY(0); opacity: 1; }
+      #toast.error { border-color: var(--danger); color: var(--danger); box-shadow: none; }
 
-      /* ── Session form ── */
-      .session-form {
-        display: flex;
-        gap: 12px;
-        align-items: flex-end;
-        flex-wrap: wrap;
-      }
-      .session-form > div {
-        flex: 1;
-        min-width: 140px;
-      }
-
-      /* ── Divider ── */
-      hr {
-        border: none;
-        border-top: 1px solid var(--border);
-        margin: 20px 0;
-      }
-
-      /* ── Logs ── */
-      .log-box {
-        background: #000;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 12px;
-        font-size: 0.75rem;
-        color: #7ec8a0;
-        max-height: 160px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-        word-break: break-all;
-      }
-
+      .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
       @media (max-width: 900px) {
-        .grid-2,
-        .grid-3 {
-          grid-template-columns: 1fr;
-        }
-        .form-row.cols-2,
-        .form-row.cols-3 {
-          grid-template-columns: 1fr;
-        }
+        .grid-2, .form-row.cols-2, .form-row.cols-3 { grid-template-columns: 1fr; }
+        .sessions-grid { grid-template-columns: 1fr; }
+        .session-card-body { grid-template-columns: 1fr; }
+        .session-half { border-right: none; border-bottom: 1px solid var(--border); }
       }
     </style>
   </head>
   <body>
     <header>
       <div class="logo">Pocket<span>CTF</span></div>
-      <div style="display: flex; gap: 12px; align-items: center">
-        <span style="font-size: 0.8rem; color: var(--dim)"
-          >Host: {{ host_ip }}</span
-        >
+      <div style="display:flex;gap:12px;align-items:center">
+        <span style="font-size:.8rem;color:var(--dim)">Host: {{ host_ip }}</span>
         <span class="badge">TEACHER</span>
       </div>
     </header>
 
     <main>
-      <!-- ── Status + Controls ── -->
-      <div class="card" style="margin-bottom: 24px">
-        <div class="card-title"><span class="dot"></span> Session Control</div>
-
-        <div class="status-row" id="status-row" style="margin-bottom: 20px">
-          <div class="status-box">
-            <div class="status-label">Attacker Container</div>
-            <div class="status-val">
-              <span class="pip" id="pip-attacker"></span>
-              <span id="txt-attacker">—</span>
-            </div>
-            <div
-              class="url-chip"
-              onclick="copyText('http://{{ host_ip }}:{{ attacker_port }}')"
-            >
-              http://{{ host_ip }}:{{ attacker_port }} ↗
-            </div>
-          </div>
-          <div class="status-box">
-            <div class="status-label">Victim Container</div>
-            <div class="status-val">
-              <span class="pip" id="pip-victim"></span>
-              <span id="txt-victim">—</span>
-            </div>
-            <div
-              class="url-chip"
-              onclick="copyText('http://{{ host_ip }}:{{ victim_port }}')"
-            >
-              http://{{ host_ip }}:{{ victim_port }} ↗
-            </div>
-          </div>
-          <div class="status-box">
-            <div class="status-label">Student URLs (share these)</div>
-            <div
-              class="url-chip"
-              style="margin-bottom: 4px"
-              onclick="copyText('http://{{ host_ip }}:5000/student/attacker')"
-            >
-              /student/attacker → {{ host_ip }}:5000/student/attacker
-            </div>
-            <div
-              class="url-chip"
-              onclick="copyText('http://{{ host_ip }}:5000/student/victim')"
-            >
-              /student/victim → {{ host_ip }}:5000/student/victim
-            </div>
-          </div>
-        </div>
-
-        <hr />
-
+      <!-- ── Start New Pair ── -->
+      <div class="card">
+        <div class="card-title"><span class="dot"></span> Start New Session Pair</div>
         <div class="session-form">
           <div>
             <label>Attacker Student Name</label>
-            <input
-              id="attacker-name"
-              type="text"
-              placeholder="e.g. Alice"
-              value="{{ session.attacker_name if session else '' }}"
-            />
+            <input id="attacker-name" type="text" placeholder="e.g. Alice" />
           </div>
           <div>
             <label>Victim Student Name</label>
-            <input
-              id="victim-name"
-              type="text"
-              placeholder="e.g. Bob"
-              value="{{ session.victim_name if session else '' }}"
-            />
+            <input id="victim-name" type="text" placeholder="e.g. Bob" />
           </div>
-          <button class="btn btn-primary" onclick="startSession()">
-            ▶ Start Session
-          </button>
-          <button class="btn btn-danger" onclick="stopSession()">
-            ■ Stop Session
-          </button>
+          <button class="btn btn-primary" onclick="startSession()">▶ Start Pair</button>
         </div>
       </div>
 
-      <div class="grid grid-2" style="margin-bottom: 24px">
-        <!-- ── Flags ── -->
-        <div class="card">
-          <div class="card-title">
-            <span class="dot"></span> Flag Management
-          </div>
+      <!-- ── Active Sessions ── -->
+      <div class="card-title" style="margin-bottom:16px">
+        <span class="dot"></span> Active Sessions
+        <span id="session-count" style="margin-left:8px;font-size:.7rem;color:var(--dim)"></span>
+        <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="refreshSessions()">↺ Refresh</button>
+      </div>
+      <div id="sessions-container"></div>
 
+      <!-- ── Flags + Leaderboard ── -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title"><span class="dot"></span> Flag Management</div>
           <div class="form-row cols-2">
-            <div>
-              <label>Flag String</label>
-              <input
-                id="fl-flag"
-                type="text"
-                placeholder="FLAG{example_secret}"
-              />
-            </div>
-            <div>
-              <label>Challenge Title</label>
-              <input
-                id="fl-title"
-                type="text"
-                placeholder="Port Scan Discovery"
-              />
-            </div>
+            <div><label>Flag String</label><input id="fl-flag" type="text" placeholder="FLAG{example_secret}" /></div>
+            <div><label>Challenge Title</label><input id="fl-title" type="text" placeholder="Port Scan Discovery" /></div>
           </div>
           <div class="form-row">
-            <div>
-              <label>Description (shown after capture)</label>
-              <input
-                id="fl-desc"
-                type="text"
-                placeholder="Found the open SSH port on victim"
-              />
-            </div>
+            <div><label>Description (shown after capture)</label>
+              <input id="fl-desc" type="text" placeholder="Found the open SSH port on victim" /></div>
           </div>
-          <div class="form-row cols-2" style="margin-bottom: 16px">
-            <div>
-              <label>Points</label>
-              <input id="fl-points" type="number" value="100" min="10" />
-            </div>
-            <div>
-              <label>Visible To</label>
+          <div class="form-row cols-2" style="margin-bottom:16px">
+            <div><label>Points</label><input id="fl-points" type="number" value="100" min="10" /></div>
+            <div><label>Visible To</label>
               <select id="fl-role">
                 <option value="attacker">Attacker</option>
                 <option value="victim">Victim/Defender</option>
@@ -555,128 +283,46 @@
               </select>
             </div>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="addFlag()">
-            + Add Flag
-          </button>
-
+          <button class="btn btn-primary btn-sm" onclick="addFlag()">+ Add Flag</button>
           <hr />
-
           <table>
-            <thead>
-              <tr>
-                <th>Challenge</th>
-                <th>Flag</th>
-                <th>Pts</th>
-                <th>Role</th>
-                <th></th>
-              </tr>
-            </thead>
+            <thead><tr><th>Challenge</th><th>Flag</th><th>Pts</th><th>Role</th><th></th></tr></thead>
             <tbody id="flags-table">
               {% for f in flags %}
               <tr id="flag-row-{{ f.id }}">
                 <td>{{ f.title }}</td>
-                <td style="color: var(--dim); font-size: 0.72rem">
-                  {{ f.flag }}
-                </td>
+                <td style="color:var(--dim);font-size:.72rem">{{ f.flag }}</td>
                 <td class="points">{{ f.points }}</td>
-                <td>
-                  <span class="role-badge role-{{ f.for_role }}"
-                    >{{ f.for_role }}</span
-                  >
-                </td>
-                <td>
-                  <button
-                    class="btn btn-danger btn-sm"
-                    onclick="deleteFlag({{ f.id }})"
-                  >
-                    ✕
-                  </button>
-                </td>
+                <td><span class="role-badge role-{{ f.for_role }}">{{ f.for_role }}</span></td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteFlag({{ f.id }})">✕</button></td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
 
-        <!-- ── Leaderboard ── -->
         <div class="card">
           <div class="card-title">
             <span class="dot"></span> Leaderboard
-            <button
-              class="btn btn-sm"
-              style="
-                margin-left: auto;
-                border-color: var(--dim);
-                color: var(--dim);
-              "
-              onclick="refreshLeaderboard()"
-            >
-              ↺ Refresh
-            </button>
+            <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="refreshLeaderboard()">↺ Refresh</button>
           </div>
-
           <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Player</th>
-                <th>Role</th>
-                <th>Flags</th>
-                <th>Score</th>
-              </tr>
-            </thead>
+            <thead><tr><th>#</th><th>Player</th><th>Role</th><th>Flags</th><th>Score</th></tr></thead>
             <tbody id="leaderboard-table">
               {% for row in leaderboard %}
               <tr>
                 <td class="rank rank-{{ loop.index }}">{{ loop.index }}</td>
                 <td>{{ row.player_name }}</td>
-                <td>
-                  <span class="role-badge role-{{ row.player_role }}"
-                    >{{ row.player_role }}</span
-                  >
-                </td>
+                <td><span class="role-badge role-{{ row.player_role }}">{{ row.player_role }}</span></td>
                 <td>{{ row.flags_captured }}</td>
                 <td class="points">{{ row.total_points }}</td>
               </tr>
-              {% endfor %} {% if not leaderboard %}
-              <tr>
-                <td
-                  colspan="5"
-                  style="color: var(--dim); text-align: center; padding: 24px"
-                >
-                  No submissions yet.
-                </td>
-              </tr>
+              {% endfor %}
+              {% if not leaderboard %}
+              <tr><td colspan="5" style="color:var(--dim);text-align:center;padding:24px">No submissions yet.</td></tr>
               {% endif %}
             </tbody>
           </table>
-
-          <hr />
-
-          <!-- Container logs -->
-          <div class="card-title" style="margin-bottom: 10px">
-            <span class="dot" style="background: var(--accent2)"></span> Quick
-            Logs
-            <div style="display: flex; gap: 8px; margin-left: auto">
-              <button
-                class="btn btn-sm"
-                style="border-color: var(--danger); color: var(--danger)"
-                onclick="fetchLogs('attacker')"
-              >
-                Attacker
-              </button>
-              <button
-                class="btn btn-sm"
-                style="border-color: var(--accent2); color: var(--accent2)"
-                onclick="fetchLogs('victim')"
-              >
-                Victim
-              </button>
-            </div>
-          </div>
-          <div class="log-box" id="log-box">
-            Select a container to view logs...
-          </div>
         </div>
       </div>
     </main>
@@ -686,96 +332,191 @@
     <script>
       const HOST = "{{ host_ip }}";
 
-      // ── Toast ──────────────────────────────────────────────────────────────────
-      function toast(msg, isError = false) {
+      // ── Toast ──────────────────────────────────────────────────────────────
+      function toast(msg, isError=false) {
         const el = document.getElementById("toast");
         el.textContent = msg;
         el.className = "show" + (isError ? " error" : "");
         clearTimeout(el._t);
-        el._t = setTimeout(() => (el.className = ""), 3000);
+        el._t = setTimeout(() => el.className = "", 3000);
       }
 
       function copyText(text) {
-        navigator.clipboard
-          .writeText(text)
-          .then(() => toast("Copied: " + text));
+        navigator.clipboard.writeText(text).then(() => toast("Copied: " + text));
       }
 
-      // ── Status polling ─────────────────────────────────────────────────────────
-      function updateStatus(data) {
-        ["attacker", "victim"].forEach((role) => {
-          const pip = document.getElementById("pip-" + role);
-          const txt = document.getElementById("txt-" + role);
-          const st = data[role] || "stopped";
-          pip.className = "pip " + st;
-          txt.textContent = st.toUpperCase();
-        });
+      // ── Sessions rendering ─────────────────────────────────────────────────
+      function pipClass(st) {
+        if (st === "running") return "running";
+        if (st === "exited")  return "exited";
+        return "stopped";
       }
 
-      function pollStatus() {
-        fetch("/status")
-          .then((r) => r.json())
-          .then(updateStatus)
-          .catch(() => {});
-      }
-      pollStatus();
-      setInterval(pollStatus, 4000);
+      function renderSessions(sessions) {
+        const container = document.getElementById("sessions-container");
+        const countEl   = document.getElementById("session-count");
+        const running   = sessions.filter(s => s.status === "running");
+        countEl.textContent = `(${running.length} running, ${sessions.length} total)`;
 
-      // ── Session ────────────────────────────────────────────────────────────────
+        if (!sessions.length) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="big">[ ]</div>
+              No sessions yet. Start a pair above.
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = `<div class="sessions-grid">${sessions.map(sessionCard).join("")}</div>`;
+      }
+
+      function sessionCard(s) {
+        const aUrl = `http://${HOST}:5000/student/${s.attacker_slug}/attacker`;
+        const vUrl = `http://${HOST}:5000/student/${s.victim_slug}/victim`;
+        const aTermUrl = `http://${HOST}:${s.attacker_port}`;
+        const vTermUrl = `http://${HOST}:${s.victim_port}`;
+        const badge = s.status === "running"
+          ? `<span class="session-status-badge running">● Running</span>`
+          : `<span class="session-status-badge stopped">■ Stopped</span>`;
+        const stopBtn = s.status === "running"
+          ? `<button class="btn btn-danger btn-sm" onclick="stopSession(${s.id})">■ Stop</button>`
+          : `<button class="btn btn-sm btn-ghost" disabled>Stopped</button>`;
+
+        return `
+        <div class="session-card" id="session-card-${s.id}">
+          <div class="session-card-header">
+            <span class="sid">#${s.id}</span>
+            <span class="pair-title">${s.attacker_name} <span style="color:var(--dim)">⚔</span> <span>${s.victim_name}</span></span>
+            ${badge}
+          </div>
+          <div class="session-card-body">
+            <div class="session-half">
+              <div class="role-lbl">⚔ Attacker</div>
+              <div class="player-name">${s.attacker_name}</div>
+              <div class="status-line">
+                <span class="pip ${pipClass(s.attacker_status)}"></span>
+                <span>${s.attacker_status.toUpperCase()}</span>
+              </div>
+              <div class="port-chip">Port: ${s.attacker_port}</div>
+              <span class="url-chip" onclick="copyText('${aUrl}')" title="Copy student URL">
+                /student/${s.attacker_slug}/attacker ↗
+              </span>
+              <a href="${aTermUrl}" target="_blank" rel="noopener"
+                 style="font-size:.7rem;color:var(--dim);text-decoration:none">
+                🖥 Open Terminal
+              </a>
+            </div>
+            <div class="session-half">
+              <div class="role-lbl">🛡 Victim / Defender</div>
+              <div class="player-name">${s.victim_name}</div>
+              <div class="status-line">
+                <span class="pip ${pipClass(s.victim_status)}"></span>
+                <span>${s.victim_status.toUpperCase()}</span>
+              </div>
+              <div class="port-chip">Port: ${s.victim_port}</div>
+              <span class="url-chip" onclick="copyText('${vUrl}')" title="Copy student URL">
+                /student/${s.victim_slug}/victim ↗
+              </span>
+              <a href="${vTermUrl}" target="_blank" rel="noopener"
+                 style="font-size:.7rem;color:var(--dim);text-decoration:none">
+                🖥 Open Terminal
+              </a>
+            </div>
+          </div>
+          <div class="session-card-footer">
+            <button class="btn btn-ghost btn-sm" onclick="fetchLogs(${s.id},'attacker')">
+              Logs ⚔
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="fetchLogs(${s.id},'victim')">
+              Logs 🛡
+            </button>
+            ${stopBtn}
+          </div>
+          <div class="log-panel" id="log-panel-${s.id}">
+            <div class="log-header">
+              <span id="log-title-${s.id}">Logs</span>
+              <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="closeLog(${s.id})">✕</button>
+            </div>
+            <div class="log-box" id="log-box-${s.id}"></div>
+          </div>
+        </div>`;
+      }
+
+      async function refreshSessions() {
+        try {
+          const r = await fetch("/status");
+          const sessions = await r.json();
+          renderSessions(sessions);
+        } catch(e) {
+          console.error("Status fetch failed:", e);
+        }
+      }
+
+      // Poll every 15 seconds
+      refreshSessions();
+      setInterval(refreshSessions, 15000);
+
+      // ── Session control ────────────────────────────────────────────────────
       async function startSession() {
-        const body = new FormData();
-        body.append(
-          "attacker_name",
-          document.getElementById("attacker-name").value || "Student A",
-        );
-        body.append(
-          "victim_name",
-          document.getElementById("victim-name").value || "Student B",
-        );
+        const a = document.getElementById("attacker-name").value.trim();
+        const v = document.getElementById("victim-name").value.trim();
+        if (!a || !v) { toast("Enter both names.", true); return; }
         toast("Starting containers...");
+        const body = new FormData();
+        body.append("attacker_name", a);
+        body.append("victim_name",   v);
         const r = await fetch("/start", { method: "POST", body });
         const d = await r.json();
-        if (d.error) toast("Error: " + d.error, true);
-        else {
-          toast("Session started!");
-          pollStatus();
+        if (d.error) {
+          toast("Error: " + d.error, true);
+        } else {
+          toast(`Session started — ports ${d.attacker_port} / ${d.victim_port}`);
+          document.getElementById("attacker-name").value = "";
+          document.getElementById("victim-name").value   = "";
+          refreshSessions();
         }
       }
 
-      async function stopSession() {
-        if (!confirm("Stop and remove both containers?")) return;
-        const r = await fetch("/stop", { method: "POST" });
+      async function stopSession(sessionId) {
+        if (!confirm(`Stop session #${sessionId}?`)) return;
+        const r = await fetch(`/stop/${sessionId}`, { method: "POST" });
         const d = await r.json();
-        toast(
-          d.status === "stopped" ? "Session stopped." : "Stopped with errors.",
-        );
-        pollStatus();
+        toast(d.status === "stopped" ? `Session #${sessionId} stopped.` : "Stopped with errors.");
+        refreshSessions();
       }
 
-      // ── Flags ──────────────────────────────────────────────────────────────────
+      // ── Logs ──────────────────────────────────────────────────────────────
+      async function fetchLogs(sessionId, role) {
+        const panel    = document.getElementById(`log-panel-${sessionId}`);
+        const box      = document.getElementById(`log-box-${sessionId}`);
+        const titleEl  = document.getElementById(`log-title-${sessionId}`);
+        titleEl.textContent = `Logs — ${role.toUpperCase()} container`;
+        box.textContent = "Fetching...";
+        panel.classList.add("open");
+        const r = await fetch(`/logs/${sessionId}/${role}`);
+        const d = await r.json();
+        box.textContent = d.logs || "No logs.";
+        box.scrollTop   = box.scrollHeight;
+      }
+
+      function closeLog(sessionId) {
+        document.getElementById(`log-panel-${sessionId}`).classList.remove("open");
+      }
+
+      // ── Flags ──────────────────────────────────────────────────────────────
       async function addFlag() {
         const body = new FormData();
-        body.append("flag", document.getElementById("fl-flag").value.trim());
-        body.append("title", document.getElementById("fl-title").value.trim());
-        body.append(
-          "description",
-          document.getElementById("fl-desc").value.trim(),
-        );
-        body.append("points", document.getElementById("fl-points").value);
+        body.append("flag",     document.getElementById("fl-flag").value.trim());
+        body.append("title",    document.getElementById("fl-title").value.trim());
+        body.append("description", document.getElementById("fl-desc").value.trim());
+        body.append("points",   document.getElementById("fl-points").value);
         body.append("for_role", document.getElementById("fl-role").value);
-
         if (!body.get("flag") || !body.get("title")) {
-          toast("Flag string and title are required.", true);
-          return;
+          toast("Flag string and title are required.", true); return;
         }
-
         const r = await fetch("/flags/add", { method: "POST", body });
         const d = await r.json();
-        if (d.error) {
-          toast(d.error, true);
-          return;
-        }
-
+        if (d.error) { toast(d.error, true); return; }
         toast("Flag added!");
         location.reload();
       }
@@ -790,43 +531,27 @@
         }
       }
 
-      // ── Leaderboard ────────────────────────────────────────────────────────────
+      // ── Leaderboard ────────────────────────────────────────────────────────
       async function refreshLeaderboard() {
-        const r = await fetch("/leaderboard");
+        const r    = await fetch("/leaderboard");
         const data = await r.json();
         const tbody = document.getElementById("leaderboard-table");
         if (!data.length) {
-          tbody.innerHTML =
-            '<tr><td colspan="5" style="color:var(--dim);text-align:center;padding:24px;">No submissions yet.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" style="color:var(--dim);text-align:center;padding:24px">No submissions yet.</td></tr>';
           return;
         }
-        tbody.innerHTML = data
-          .map(
-            (row, i) => `
-      <tr>
-        <td class="rank rank-${i + 1}">${i + 1}</td>
-        <td>${row.player_name}</td>
-        <td><span class="role-badge role-${row.player_role}">${row.player_role}</span></td>
-        <td>${row.flags_captured}</td>
-        <td class="points">${row.total_points}</td>
-      </tr>`,
-          )
-          .join("");
+        tbody.innerHTML = data.map((row, i) => `
+          <tr>
+            <td class="rank rank-${i+1}">${i+1}</td>
+            <td>${row.player_name}</td>
+            <td><span class="role-badge role-${row.player_role}">${row.player_role}</span></td>
+            <td>${row.flags_captured}</td>
+            <td class="points">${row.total_points}</td>
+          </tr>`).join("");
         toast("Leaderboard refreshed.");
       }
 
-      // Auto-refresh leaderboard every 15s
-      setInterval(refreshLeaderboard, 15000);
-
-      // ── Logs ───────────────────────────────────────────────────────────────────
-      async function fetchLogs(role) {
-        const box = document.getElementById("log-box");
-        box.textContent = "Fetching...";
-        const r = await fetch("/logs/" + role);
-        const d = await r.json();
-        box.textContent = d.logs || "No logs.";
-        box.scrollTop = box.scrollHeight;
-      }
+      setInterval(refreshLeaderboard, 30000);
     </script>
   </body>
 </html>
