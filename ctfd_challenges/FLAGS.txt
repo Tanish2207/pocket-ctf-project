@@ -1,0 +1,59 @@
+PocketCTF — MASTER FLAG LIST
+
+TIER 1: NETWORK FORENSICS
+
+  Challenge 1: Who's the Target?          (75 pts)
+  Flag: CoC{172_20_0_2}
+
+  Challenge 2: The Hammer                 (100 pts)
+  Flag: CoC{syn_flood}
+
+  Challenge 3: The Spy                    (150 pts)
+  Flag: CoC{nmap}
+
+  Challenge 4: Name the Killers           (200 pts)
+  Flag: CoC{172_20_0_3_and_172_20_0_4}
+
+  Challenge 5: The Fingerprint            (300 pts)
+  Flag: CoC{80_64}
+
+TIER 2: SYSTEM INVESTIGATION
+
+  Challenge 6: Hidden in Plain Sight      (100 pts)
+  Flag: CoC{http_headers_are_leaky}
+  How:  curl -I http://172.20.0.2 → look at X-Secret-Flag header
+
+  Challenge 7: The Crontab Conspiracy     (200 pts)
+  Flag: CoC{persistence_via_cron}
+  How:  docker exec victim-host cat /etc/cron.d/maintenance
+        OR: docker exec victim-host cat /var/log/.secret.log
+
+  Challenge 8: Decode the Exfil           (250 pts)
+  Flag: CoC{dns_tunneling_detected}
+  How:  ~/Desktop/evidence/suspicious_dns_capture.txt
+        Decode Query #3 base64: echo 'Q29De2Ruc190dW5uZWxpbmdfZGV0ZWN0ZWR9' | base64 -d
+
+  Challenge 9: The Backdoor               (300 pts)
+  Flag: CoC{never_trust_hidden_files}
+  How:  docker exec victim-host cat /usr/lib/.hidden/backdoor.sh
+        Flag is in a comment in the script
+
+  Challenge 10: Log Detective             (250 pts)
+  Flag: CoC{user_agent_exfiltration}
+  How:  docker logs victim-host 2>&1 | grep CoC
+        The recon attacker sends HTTP requests with flag in User-Agent
+
+TIER 3: ADVANCED
+
+  Challenge 11: Privilege Escalation      (350 pts)
+  Flag: CoC{suid_is_dangerous}
+  How:  find / -perm -4000 2>/dev/null → /usr/local/bin/statuscheck
+        Run it: /usr/local/bin/statuscheck → reads /root/flag.txt
+
+  Challenge 12: Packet Surgeon            (400 pts)
+  Flag: CoC{deep_packet_inspection_ftw}
+  How:  Wireshark filter: http.request && ip.src == 172.20.0.3
+        X-Payload header hex: 436f437b646565705f7061636b65745f696e7370656374696f6e5f6674777d
+        Decode: echo '436f437b...' | xxd -r -p
+
+Total: 2375 points across 12 challenges (3 tiers)
