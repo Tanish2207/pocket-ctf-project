@@ -1,7 +1,10 @@
 import logging
 import re
+import secrets
 import socket
 import sqlite3
+import time
+import os
 
 import docker
 from flask import Flask, g, jsonify, render_template, request
@@ -166,6 +169,96 @@ def allocate_ports():
     return port, port + 1
 
 
+def inject_defender_flag(victim_container: str, victim_name: str, db) -> str | None:
+    """Generate a unique per-session flag, write it into the victim container,
+    and register it in the DB as a 200-point defender challenge.
+    The same flag value is used for both — one source of truth.
+    Title includes victim_name so the teacher dashboard shows one distinct
+    entry per session instead of multiple generic 'Block the Attacker' rows."""
+    flag = f"FLAG{{defender_{secrets.token_hex(8)}}}"
+    try:
+        c = docker_client.containers.get(victim_container)
+        # Wait up to 10 s for the container to be fully running
+        for _ in range(10):
+            c.reload()
+            if c.status == "running":
+                break
+            time.sleep(1)
+
+        result = c.exec_run(
+            ["bash", "-c",
+             f"echo '{flag}' > /root/.defender_flag && chmod 600 /root/.defender_flag"]
+        )
+        if result.exit_code != 0:
+            log.error("inject_defender_flag exec failed (exit %d): %s",
+                      result.exit_code, result.output)
+            return None
+
+        db.execute(
+            """INSERT OR IGNORE INTO flags
+               (flag, title, description, points, for_role)
+               VALUES (?,?,?,?,?)""",
+            (
+                flag,
+                f"Block the Attacker \u2014 {victim_name}",
+                f"[{victim_name}] Identify and block the attacker\u2019s IP using iptables, "
+                "then run /check_defender.sh to claim your flag.",
+                200,
+                "victim",
+            ),
+        )
+        db.commit()
+        log.info("Defender flag injected into '%s': %s", victim_container, flag)
+        return flag
+    except Exception as e:
+        log.error("Failed to inject defender flag into '%s': %s", victim_container, e,
+                  exc_info=True)
+        return None
+
+
+def inject_rce_flag(victim_container: str, victim_name: str, db) -> str | None:
+    """Generate a unique per-session RCE flag, write it into the victim container
+    at /root/rce_flag.txt, and register it as a 300-point attacker challenge."""
+    flag = f"FLAG{{rce_{secrets.token_hex(8)}}}"
+    try:
+        c = docker_client.containers.get(victim_container)
+        for _ in range(10):
+            c.reload()
+            if c.status == "running":
+                break
+            time.sleep(1)
+
+        result = c.exec_run(
+            ["bash", "-c",
+             f"echo '{flag}' > /root/rce_flag.txt && chmod 600 /root/rce_flag.txt"]
+        )
+        if result.exit_code != 0:
+            log.error("inject_rce_flag exec failed (exit %d): %s",
+                      result.exit_code, result.output)
+            return None
+
+        db.execute(
+            """INSERT OR IGNORE INTO flags
+               (flag, title, description, points, for_role)
+               VALUES (?,?,?,?,?)""",
+            (
+                flag,
+                f"RCE \u2014 {victim_name}",
+                f"[{victim_name}] Discover the web service on the victim, exploit the "
+                "command injection in /ping-tool, and read /root/rce_flag.txt.",
+                300,
+                "attacker",
+            ),
+        )
+        db.commit()
+        log.info("RCE flag injected into '%s': %s", victim_container, flag)
+        return flag
+    except Exception as e:
+        log.error("Failed to inject RCE flag into '%s': %s", victim_container, e,
+                  exc_info=True)
+        return None
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -245,6 +338,23 @@ def start_session():
         elif a.status != "running":
             log.info("Attacker exists (%s) — restarting", a.status)
             a.start()
+
+        # ── Inject unique defender flag into victim container ─────────────────
+        defender_flag = inject_defender_flag(victim_container, victim_name, db)
+        if defender_flag:
+            log.info("Defender flag ready for session '%s'", victim_container)
+        else:
+            log.warning("Defender flag injection failed for '%s' — challenge won't work",
+                        victim_container)
+
+        # ── Inject unique RCE flag into victim container ──────────────────────
+        rce_flag = inject_rce_flag(victim_container, victim_name, db)
+        if rce_flag:
+            log.info("RCE flag ready for session '%s'", victim_container)
+        else:
+            log.warning("RCE flag injection failed for '%s' — challenge won't work",
+                        victim_container)
+        # ─────────────────────────────────────────────────────────────────────
 
         db.execute(
             """INSERT INTO sessions
